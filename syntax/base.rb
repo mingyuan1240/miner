@@ -28,12 +28,11 @@ module Miner
                 class << mod
                     def register_key(*keys)
                         keys.each do |key_method|
-                            alias_name = "__#{key_method}__".to_sym
+                            alias_name = "__#{ key_method }__".to_sym
                             alias_method alias_name, key_method
                             define_method(key_method) do |*args, **kws|
-                                @key_stack ||= 0
-                                before_key_called key_method
-                                @key_stack += 1
+                                before key_method
+                                send "before_#{ key_method }".to_sym
 
                                 code = "#{alias_name} "
                                 code << (0...args.size).map { |idx| "args[#{idx}]" }.join(",")
@@ -41,8 +40,7 @@ module Miner
                                 result = instance_eval(code)
                                 @tuple << result
 
-                                @key_stack -= 1
-                                after_key_called key_method, result
+                                after key_method
                             end
                         end
                     end
@@ -50,20 +48,10 @@ module Miner
             end
 
             def tuple
-                @tuples ||= []
-                @tuple_open ||= 0
-                @tuple_open += 1
                 @tuple = []
 
                 yield
 
-                @tuple_open -= 1
-                if @tuple_open == 0
-                    @tuples << @tuple
-                else
-                    #p @tuples.last
-                    @tuples.last << @tuple
-                end
             end
 
             def ref(idx)
@@ -77,14 +65,13 @@ module Miner
 
             private
 
-            def before_key_called(key)
-                p "Before #{key} , stack:#{@key_stack}"
-            end
-            def after_key_called(key, result)
-                @tuple << result
+            def before
+                p 'before in base'
             end
 
-
+            def after
+                p 'after in base'
+            end
         end
     end
 end

@@ -6,9 +6,9 @@ $: << current_dir unless $:.include? current_dir
 
 require 'element'
 require 'syntax/random'
+require 'syntax/cond'
 require 'syntax/const'
 require 'syntax/math'
-require 'syntax/cond'
 
 module Miner
     class Worker 

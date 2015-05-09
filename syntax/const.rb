@@ -12,6 +12,7 @@ module Miner
     module Syntax
         module Const
             include Define
+            include Base
 
             def int32(val)
                 number 'int32', val, (MIN_INT32..MAX_INT32)
@@ -25,13 +26,25 @@ module Miner
                 number 'int64', val, (MIN_INT64..MAX_INT64)
             end
 
-            def before_key_called(key)
-                p "Before #{key} called, stack:#{@key_stack}"
+            def uint64(vl)
+                number 'uint64', val, (0..MAX_UINT64)
             end
 
-            include Base
+            def before(key)
+                p "before in const: #{key}"
+            end
+
+            def after(key)
+                p "after int const: #{ key }"
+            end
+
+            def before_int32
+                p 'before int32'
+            end
+
             register_key :int32, :int64
 
+            private
             def number(type, val, range)
                 raise_range_error(type, val, range) unless range.include? val 
                 val

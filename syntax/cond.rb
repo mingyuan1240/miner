@@ -17,7 +17,6 @@ module Miner
                 no
             end
 
-
             def switch(value, *cases)
                 cases.each do |a, b|
                     return b if value == a
@@ -27,6 +26,14 @@ module Miner
 
             def default(value)
                 @default = { :default => value }
+            end
+
+            def before key
+                p 'before in cond'
+            end
+
+            def before_int32
+                p 'wrong before'
             end
 
             include Base
