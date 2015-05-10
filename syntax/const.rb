@@ -5,44 +5,50 @@
 current_dir = File.dirname(__FILE__)
 $: << current_dir unless $:.include? current_dir
 
-require 'element'
-require 'base'
+require 'syntax'
 
 module Miner
     module Syntax
-        module Const
-            include Define
-            include Base
+        class Const < Base
+            include Miner::Define
 
-            def int32(val)
-                number 'int32', val, (MIN_INT32..MAX_INT32)
+            def int32 val
+                number 'int32', val, MIN_INT32..MAX_INT32
             end
 
-            def uint32(val)
-                number 'uint32', val, (0..MAX_UINT32)
+            def uint32 val
+                number 'uint32', val, 0..MAX_UINT32
             end
 
-            def int64(val)
-                number 'int64', val, (MIN_INT64..MAX_INT64)
+            def int64 val
+                number 'int64', val, MIN_INT64..MAX_INT64
             end
 
-            def uint64(vl)
-                number 'uint64', val, (0..MAX_UINT64)
+            def uint64 val
+                number 'uint64', val, 0..MAX_UINT64
             end
 
-            def before(key)
-                p "before in const: #{key}"
+            def uint8 val
+                number 'uint8', val, 0..MAX_UINT8
             end
 
-            def after(key)
-                p "after int const: #{ key }"
+            def int8 val
+                number 'int8', val, MIN_INT8..MAX_INT8
             end
 
-            def before_int32
-                p 'before int32'
+            def int16 val
+                number 'int16', val, MIN_INT16..MAX_INT16
             end
 
-            register_key :int32, :int64
+            def uint16 val
+                number 'uint16', val, 0..MAX_UINT16
+            end
+
+            def i val
+                val.to_i
+            end
+
+            register_keyword :int8, :uint8, :int16, :uint16, :int32, :uint32, :int64, :uint64, :i
 
             private
             def number(type, val, range)

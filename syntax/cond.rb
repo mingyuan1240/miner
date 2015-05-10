@@ -5,39 +5,20 @@
 current_dir = File.dirname(__FILE__)
 $: << current_dir unless $:.include? current_dir
 
-
-require 'element'
-require 'base'
+require 'syntax'
 
 module Miner
     module Syntax
-        module Cond
-            def cond(bool, yes, no)
-                return yes if bool
-                no
+        class Cond < Base
+            def cond bool, yes, no
+                bool ? yes : no
             end
 
-            def switch(value, *cases)
-                cases.each do |a, b|
-                    return b if value == a
-                end
-                return @default[:default] if @default
+            def switch value, cases
+                cases[value] || cases[:default]
             end
 
-            def default(value)
-                @default = { :default => value }
-            end
-
-            def before key
-                p 'before in cond'
-            end
-
-            def before_int32
-                p 'wrong before'
-            end
-
-            include Base
-            register_key :cond, :switch
+            register_keyword :cond, :switch
         end
     end
 end

@@ -5,8 +5,7 @@
 current_dir = File.dirname(__FILE__)
 $: << current_dir unless $:.include? current_dir
 
-require 'element'
-require 'base'
+require 'syntax'
 
 module Miner
     module Syntax
@@ -18,9 +17,6 @@ module Miner
             def rand64(max)
                 'rand64'
             end
-
-            include Base
-            register_key :rand32, :rand64
         end
     end
 end
