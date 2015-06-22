@@ -3,9 +3,58 @@
 
 require 'set'
 require 'base64'
-require 'rexml/document'
+
+class Range
+  alias_method :_include?, :include?
+
+  def include? obj
+    if obj.kind_of? Range
+      first <= obj.first && max >= obj.max
+    else
+      _include? obj
+    end
+  end
+end
 
 module Miner
+  TOO_LONG_STRING_LENGTH = 65536
+  
+  class << self
+    @@random_string_max_len = 128
+    @@random_string_min_len = 0
+    
+    attr_accessor :random_string_max_len, :random_string_min_len
+
+    def random_string_max_len
+      @@random_string_max_len
+    end
+
+    def random_string_min_len
+      @@random_string_min_len
+    end
+
+    def random_string_min_len= len
+      raise RangeError, "Min length should not smaller then 0" if len < 0
+      @@random_string_min_len = len
+    end
+
+    def random_string_max_len= len
+      raise RangeError, "Warning: #{ len } is too long to slow down miner speed, if you persist, use 'random_string_max_len!'" if len > TOO_LONG_STRING_LENGTH
+
+      random_string_max_len! len
+    end
+
+    def random_string_max_len! len
+      raise RangeError, "Max length should not smaller then 0" if len < 0
+      @@random_string_max_len = len
+    end
+    
+    def random_string_len_range
+      raise RangeError, "Nagetive range: #{ @@random_string_min_len..@@random_string_max_len }" if @@random_string_min_len > @@random_string_max_len
+      @@random_string_min_len..@@random_string_max_len
+    end
+  end
+  
   module Boundary
     MAX_INT8 = 2 ** 7 - 1
     MAX_UINT8 = 2 ** 8 - 1
@@ -26,43 +75,22 @@ module Miner
 
   module Const
     include Boundary
-    
-    def int32 val
-      number :int32, val, MIN_INT32..MAX_INT32
+
+    [
+      [:int8, MIN_INT8..MAX_INT8],
+      [:uint8, 0..MAX_UINT8],
+      [:int16, MIN_INT16..MAX_INT16],
+      [:uint16, 0..MAX_UINT16],
+      [:int32, MIN_INT32..MAX_INT32],
+      [:uint32, 0..MAX_UINT32],
+      [:int64, MIN_INT64..MAX_INT64],
+      [:uint64, 0..MAX_UINT64]
+    ].each do |type, range|
+      define_method type do |val|
+        number type, val, range
+      end
     end
 
-    def uint32 val
-      number :uint32, val, 0..MAX_UINT32
-    end
-
-    def int64 val
-      number :int64, val, MIN_INT64..MAX_INT64
-    end
-
-    def uint64 val
-      number :uint64, val, 0..MAX_UINT64
-    end
-
-    def uint8 val
-      number :uint8, val, 0..MAX_UINT8
-    end
-
-    def int8 val
-      number :int8, val, MIN_INT8..MAX_INT8
-    end
-
-    def int16 val
-      number :int16, val, MIN_INT16..MAX_INT16
-    end
-
-    def uint16 val
-      number :uint16, val, 0..MAX_UINT16
-    end
-
-    def str s
-      s
-    end
-    
     private
     def number(type, val, range)
       raise_range_error(type, val, range) unless range.include? val
@@ -77,41 +105,100 @@ module Miner
   module Random
     include Boundary
 
-    def rand8
-      Attribute.new rand(MIN_INT8..MAX_INT8), :int8
+    def rand8 expect = MAX_INT8
+      random :int8, (MIN_INT8..MAX_INT8), expect
     end
 
-    def randu8
-      Attribute.new rand(0..MAX_UINT8), :uint8
+    def randu8 expect = MAX_UINT8
+      random :uint8, (0..MAX_UINT8), expect
+    end
+
+    def rand16 expect = MAX_INT16
+      random :int16, (MIN_INT16..MAX_INT16), expect
     end
     
-    def rand32
-      Attribute.new rand(MIN_INT32..MAX_INT32), :int32
-    end
-
-    def randu32
-      Attribute.new rand(0..MAX_UINT32), :uint32
+    def randu16 expect = MAX_UINT16
+      random :uint16, (0..MAX_UINT16), expect
     end
     
-    def randu16
-      Attribute.new rand(0..MAX_UINT16), :uint16
+    def rand32 expect = MAX_INT32
+      random :int32, (MIN_INT32..MAX_INT32), expect
     end
 
-    def rand64
-      Attribute.new rand(MIN_INT64..MAX_INT64), :int64
+    def randu32 expect = MAX_UINT32
+      random :uint32, (0..MAX_UINT32), expect
     end
     
-    def randstr size = rand(MAX_UINT8)
-      raise ArgumentError, "negative size: #{ size }" if size < 0
-      Base64.encode64(randbyte size)[0...size]
+    def rand64 expect = MAX_INT64
+      random :int64, (MIN_INT64..MAX_INT64), expect
     end
 
-    def randbyte size = rand(MAX_UINT8)
-      raise ArgumentError, "negative size: #{ size }" if size < 0
+    def randu64 expect = MAX_UINT64
+      random :uint64, (0..MAX_UINT64), expect
+    end
+
+    def randf
+      raise 'No implement'
+    end
+
+    def randd
+      raise 'No implement'
+    end
+    
+    def randstr arg = Miner.random_string_len_range
+      bytes = randbyte arg
+      if arg.kind_of? Fixnum
+        Base64.encode64(bytes)[0, arg]
+      else
+        Base64.encode64(bytes)[0, min(bytes.length, arg.max)]
+      end
+    end
+
+    def randbyte arg = Miner.random_string_len_range
+      size = arg 
+      if arg.kind_of? Range
+        raise RangeError, "negative size: #{ arg }" if arg.first < 0
+        size = rand arg
+      end
+      raise RangeError, "negative size: #{ size }" if size < 0
       Array.new((size / 8).next) { |idx| rand64.value }.pack('q*')[0...size]
+    end
+
+    private
+    def random type, range, expect
+      raise RangeError, "#{ expect} is out of #{ type }" unless range.include? expect
+      expect = (range.first..expect) if expect.kind_of? Fixnum
+      Attribute.new rand(expect), type
+    end
+
+    private
+    def min a, b
+      a > b ? a : b
     end
   end
 
+  module Enum
+    [
+      [:enum8, :int8],
+      [:enumu8, :uint8],
+      [:enum16, :int16],
+      [:enumu16, :uint16],
+      [:enum32, :int32],
+      [:enumu32, :uint32],
+      [:enum64, :int64],
+      [:enumu64, :uint64]
+    ].each do |method, type|
+      define_method method do |collection|
+        enum collection, type
+      end
+    end
+
+    private
+    def enum collection, type
+      Attribute.new collection.each.to_a.sample, type
+    end
+  end
+  
   class Attribute
     include Comparable
     
@@ -147,8 +234,12 @@ module Miner
       @value.to_s
     end
 
-    def to_b
-      @type
+    def to_b endian = :small
+      if @type == :tuple
+        @value.to_b
+      else
+        [@value].pack pack_type(endian)
+      end
     end
     
     def inspect
@@ -158,6 +249,17 @@ module Miner
     def method_missing method, *args
       @value.send method, *args
     end
+
+    private
+    def pack_type endian
+      t = %i(int8   uint8   int16   uint16  int32   uint32  int64   uint64  float   double  string)
+      s = %w(c      C       s<      S<      l<      L<      q<      Q<      e       E       A)
+      b = %w(c      C       s>      S>      l>      L>      q>      Q>      g       G       A)
+      case endian
+      when :small then s[t.index @type]
+      when :big then b[t.index @type]
+      end
+    end
   end
 
   class Tuple < Array
@@ -165,58 +267,19 @@ module Miner
       self.map(&:to_b).join
     end
   end
-
+  
   class Schema
     include Const
     include Random
-
+    include Enum
+    
     class << self
       def [] name
         @@schemas.fetch name
       end
-
-      def load source
-        doc = REXML::Document.new source
-        if doc.root.name == 'schema'
-          load_schema doc.root
-        end
-      end
-      
-      private
-      def load_schema xml_element
-        templete = []
-        names = []
-        xml_element.elements.each do |element|
-          attrs = element.attributes
-          names << attrs['name']
-          templete << "attr #{ rand_type(attrs['type']) }"
-          if %w(string blob).include?(attrs['type']) && attrs['length']
-            if attrs['length'].start_with? '#'
-              ref_idx = names.index(attrs['length'][1..-1])
-              raise "can not find ref attr: #{ attrs['length'] }" unless ref_idx
-              templete.last << "(ref(#{ ref_idx }))"
-            else
-              templete.last << "(#{ attrs['length'] })"
-            end
-          end
-        end
-        Schema.new xml_element.attributes['name'].to_sym, templete.join("\n")
-      end
-
-      def rand_type type
-        case type
-        when 'uint8' then 'randu8'
-        when 'int32' then 'rand32'
-        when 'uint32' then 'randu32'
-        when 'int64' then 'rand64'
-        when 'string' then 'randstr'
-        when 'blob' then 'randbyte'
-        else raise TypeError, "can not find such type: #{ type }"
-        end
-      end
     end
 
-    attr_reader :subschemas, :source
+    attr_reader :subschemas, :name
     
     def initialize name, source = nil, &block
       @name = name
@@ -235,6 +298,10 @@ module Miner
         instance_eval &@templete
       end
       @tuple
+    end
+
+    def source
+      ":#{ @name } {\n#{ @source }\n}"
     end
     
     def attr a
