@@ -138,11 +138,13 @@ module Miner
     end
 
     def randf
-      raise 'No implement'
+      # TODO
+      Attribute.new rand, :float
     end
 
     def randd
-      raise 'No implement'
+      # TODO
+      Attribute.new rand, :double
     end
     
     def randstr arg = Miner.random_string_len_range
@@ -238,7 +240,7 @@ module Miner
       if @type == :tuple
         @value.to_b
       else
-        [@value].pack pack_type(endian)
+        [@value].pack(pack_type(endian))
       end
     end
     
@@ -252,7 +254,7 @@ module Miner
 
     private
     def pack_type endian
-      t = %i(int8   uint8   int16   uint16  int32   uint32  int64   uint64  float   double  string)
+      t = [:int8,   :uint8,   :int16,   :uint16,  :int32,   :uint32,  :int64,   :uint64,  :float,   :double,  :string]
       s = %w(c      C       s<      S<      l<      L<      q<      Q<      e       E       A)
       b = %w(c      C       s>      S>      l>      L>      q>      Q>      g       G       A)
       case endian
@@ -263,8 +265,10 @@ module Miner
   end
 
   class Tuple < Array
-    def to_b
-      self.map(&:to_b).join
+    def to_b(endian = :small)
+      self.map do |attr|
+          attr.to_b(endian)
+      end.join
     end
   end
   
@@ -275,13 +279,17 @@ module Miner
     
     class << self
       def [] name
-        @@schemas.fetch name
+        @@schemas.fetch(name)
+      end
+
+      def schemas
+        @@schemas
       end
     end
 
     attr_reader :subschemas, :name
     
-    def initialize name, source = nil, &block
+    def initialize(name, source = nil, &block)
       @name = name
       @source = source
       @templete = block
@@ -295,7 +303,7 @@ module Miner
       if @source
         instance_eval @source
       else
-        instance_eval &@templete
+        instance_eval(&@templete)
       end
       @tuple
     end

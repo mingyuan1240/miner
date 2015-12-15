@@ -77,10 +77,9 @@ module DynED
     
     def initialize source
       super()
-      
-      raise FormatError, 'Illegal choice expression' unless source =~ /\A\w+:(\w+->\w+,\b)*\w+->\w+\Z/
+      raise FormatError, 'Illegal choice expression' unless source =~ /\A\w+:(\w+->\w+;\b)*/
       @attr, choices = source.split(':')
-      choices.split(',').each do |choice|
+      choices.split(';').each do |choice|
         enum, schema = choice.split('->')
         self[enum] = schema
       end
@@ -150,7 +149,7 @@ module DynED
           elsif @lvenable
             templete.last << "(ref(#{ map_index(index) - 1 }))"
           end
-        when :int8, :uint8, :int16, :uint16, :int32, :uint32, :int64, :uint64
+        when :int8, :uint8, :int16, :uint16, :int32, :uint32, :int64, :uint64, :float, :double
           templete << "attr uint32 #{ type_len type }" if @lvenable
           templete << "attr #{ rand_type type }"
         when :subschema
@@ -188,15 +187,15 @@ module DynED
     end
     
     def rand_type type
-      s = %i(int8   uint8   int16   uint16  int32   uint32  int64   uint64  string  blob)
-      d = %i(rand8  randu8  rand16  randu16 rand32  randu32 rand64  randu64 randstr randbyte)
+      s = [:int8,   :uint8,   :int16,   :uint16,  :int32,   :uint32,  :int64,   :uint64,  :float, :double, :string,  :blob]
+      d = [:rand8,  :randu8,  :rand16,  :randu16, :rand32,  :randu32, :rand64,  :randu64, :randf, :randd, :randstr, :randbyte]
       raise TypeError, "Can not find such type: #{ type }" unless s.index type
       d[s.index type]
     end
 
     def rand_enum_type type
-      s = %i(int8   uint8   int16   uint16  int32   uint32  int64   uint64)
-      d = %i(enum8  enumu8  enum16  enumu16 enum32  enumu32 enum64  enumu64)
+      s = [:int8,   :uint8,   :int16,   :uint16,  :int32,   :uint32,  :int64,   :uint64]
+      d = [:enum8,  :enumu8,  :enum16,  :enumu16, :enum32,  :enumu32, :enum64,  :enumu64]
       raise TypeError, "Can not find such type: #{ type }" unless s.index type
       d[s.index type]
     end
